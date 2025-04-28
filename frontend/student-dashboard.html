@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Class Scheduling System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="min-h-screen p-6">
+        <nav class="glass-card rounded-xl shadow-lg p-4 mb-6 flex justify-between items-center animate-fade-in">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                    Student Dashboard
+                </h1>
+                <span id="welcomeMessage" class="text-gray-600"></span>
+            </div>
+            <button onclick="logout()" 
+                    class="bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
+                Logout
+            </button>
+        </nav>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.1s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">My Schedule</h2>
+                <div id="scheduleContainer" class="space-y-4">
+                    <!-- Schedule will be loaded here -->
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.2s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">Available Classes</h2>
+                <div class="mb-4">
+                    <input type="text" id="searchClasses" placeholder="Search classes..." 
+                           class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200">
+                </div>
+                <div id="availableClassesContainer" class="space-y-4">
+                    <!-- Available classes will be loaded here -->
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.3s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">My Enrollments</h2>
+                <div id="enrollmentsContainer" class="space-y-4">
+                    <!-- Enrolled classes will be loaded here -->
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.4s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">My Attendance</h2>
+                <div id="attendanceContainer" class="space-y-4">
+                    <!-- Attendance data will be loaded here -->
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.5s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">Performance Overview</h2>
+                <div id="performanceContainer" class="space-y-4">
+                    <!-- Performance data will be loaded here -->
+                </div>
+            </div>
+
+            <div class="glass-card rounded-xl shadow-lg p-6 animate-slide-in" style="animation-delay: 0.6s">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">Subject Remarks</h2>
+                <div id="remarksContainer" class="space-y-4">
+                    <!-- Remarks will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class Details Modal -->
+    <div id="classModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="glass-card rounded-xl shadow-xl p-8 w-full max-w-md animate-bounce-in">
+                <h3 id="modalTitle" class="text-xl font-semibold mb-4 bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                    Class Details
+                </h3>
+                <div id="modalContent" class="space-y-4">
+                    <!-- Class details will be loaded here -->
+                </div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button id="enrollButton" 
+                            class="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 hidden">
+                        Enroll
+                    </button>
+                    <button id="dropButton" 
+                            class="bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 hidden">
+                        Drop Class
+                    </button>
+                    <button onclick="hideModal()" 
+                            class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Backend API URL
+        const API_URL = 'http://localhost:3000/api';
+        let currentClassId = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUser = checkAuth();
+            if (!currentUser) {
+                window.location.href = 'index.html';
+                return;
+            }
+            if (currentUser.userType !== 'student') {
+                window.location.href = 'index.html';
+                return;
+            }
+            // Update welcome message
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${currentUser.username}`;
+            
+            // Load initial data
+            loadSchedule();
+            loadEnrollments();
+            loadAvailableClasses();
+            loadAttendance();
+            loadPerformance();
+            loadRemarks();
+
+            // Setup search functionality
+            document.getElementById('searchClasses').addEventListener('input', debounce(function(e) {
+                loadAvailableClasses(e.target.value);
+            }, 300));
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        async function loadSchedule() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/student/schedule`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load schedule');
+                }
+
+                const schedule = await response.json();
+                displaySchedule(schedule);
+            } catch (error) {
+                showError('Error loading schedule: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function loadEnrollments() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/student/enrollments`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load enrollments');
+                }
+
+                const enrollments = await response.json();
+                displayEnrollments(enrollments);
+            } catch (error) {
+                showError('Error loading enrollments: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function loadAvailableClasses(searchQuery = '') {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const url = new URL(`${API_URL}/classes/available`);
+                if (searchQuery) {
+                    url.searchParams.append('search', searchQuery);
+                }
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load available classes');
+                }
+
+                const classes = await response.json();
+                displayAvailableClasses(classes);
+            } catch (error) {
+                showError('Error loading available classes: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function loadAttendance() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/student/attendance`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load attendance');
+                }
+
+                const attendance = await response.json();
+                displayAttendance(attendance);
+            } catch (error) {
+                showError('Error loading attendance: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function loadPerformance() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/student/performance`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load performance');
+                }
+
+                const performance = await response.json();
+                displayPerformance(performance);
+            } catch (error) {
+                showError('Error loading performance: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function loadRemarks() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/student/remarks`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load remarks');
+                }
+
+                const remarks = await response.json();
+                displayRemarks(remarks);
+            } catch (error) {
+                showError('Error loading remarks: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function enrollInClass(classId) {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/classes/${classId}/enroll`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to enroll in class');
+                }
+
+                showSuccess('Successfully enrolled in class');
+                loadEnrollments();
+                loadAvailableClasses();
+                hideModal('classDetailsModal');
+            } catch (error) {
+                showError('Error enrolling in class: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        async function dropClass(classId) {
+            try {
+                if (!confirm('Are you sure you want to drop this class?')) {
+                    return;
+                }
+
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+                const response = await fetch(`${API_URL}/classes/${classId}/drop`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to drop class');
+                }
+
+                showSuccess('Successfully dropped class');
+                loadEnrollments();
+                loadAvailableClasses();
+            } catch (error) {
+                showError('Error dropping class: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        function showError(message) {
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            setTimeout(() => alert.classList.add('hidden'), 5000);
+        }
+
+        function showSuccess(message) {
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            setTimeout(() => alert.classList.add('hidden'), 5000);
+        }
+
+        function displayAttendance(attendance) {
+            const container = document.getElementById('attendanceContainer');
+            container.innerHTML = attendance.map(record => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                    <h3 class="font-medium text-gray-800">${record.subjectName}</h3>
+                    <p class="text-sm text-gray-600 mb-2">Present: ${record.presentCount} / Total: ${record.totalClasses}</p>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full transition-all duration-500" 
+                             style="width: ${(record.presentCount/record.totalClasses)*100}%">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayPerformance(performance) {
+            const container = document.getElementById('performanceContainer');
+            container.innerHTML = performance.map(record => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                    <h3 class="font-medium text-gray-800 mb-2">${record.subjectName}</h3>
+                    <div class="space-y-2">
+                        ${record.assessments.map(assessment => `
+                            <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
+                                <span class="text-gray-800">${assessment.name}</span>
+                                <span class="font-medium text-primary-600">${assessment.score}/${assessment.totalMarks}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayRemarks(remarks) {
+            const container = document.getElementById('remarksContainer');
+            container.innerHTML = remarks.map(remark => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-medium text-gray-800">${remark.subjectName}</h3>
+                        <span class="text-sm text-gray-500">${new Date(remark.date).toLocaleDateString()}</span>
+                    </div>
+                    <p class="text-gray-700 mb-2">${remark.content}</p>
+                    <p class="text-sm text-gray-600">- ${remark.facultyName}</p>
+                </div>
+            `).join('');
+        }
+
+        function displaySchedule(schedule) {
+            const container = document.getElementById('scheduleContainer');
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            
+            container.innerHTML = days.map(day => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                    <h3 class="font-medium text-gray-800 mb-2">${day}</h3>
+                    <div class="space-y-2">
+                        ${schedule[day.toLowerCase()]?.map(cls => `
+                            <div class="p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+                                <p class="font-medium text-gray-800">${cls.name}</p>
+                                <p class="text-sm text-gray-600">${cls.time}</p>
+                            </div>
+                        `).join('') || '<p class="text-sm text-gray-500">No classes scheduled</p>'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayEnrollments(enrollments) {
+            const container = document.getElementById('enrollmentsContainer');
+            if (enrollments.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No classes enrolled yet.</p>';
+                return;
+            }
+
+            container.innerHTML = enrollments.map(enrollment => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200 cursor-pointer" 
+                     onclick="showClassDetails('${enrollment.classId}', true)">
+                    <h3 class="font-medium text-gray-800">${enrollment.className}</h3>
+                    <p class="text-sm text-gray-600">Schedule: ${enrollment.schedule}</p>
+                    <p class="text-sm text-gray-600">Faculty: ${enrollment.facultyName}</p>
+                </div>
+            `).join('');
+        }
+
+        function displayAvailableClasses(classes) {
+            const container = document.getElementById('availableClassesContainer');
+            if (classes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No available classes found.</p>';
+                return;
+            }
+
+            container.innerHTML = classes.map(cls => `
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200 cursor-pointer"
+                     onclick="showClassDetails('${cls._id}', false)">
+                    <h3 class="font-medium text-gray-800">${cls.name}</h3>
+                    <p class="text-sm text-gray-600">Schedule: ${cls.schedule}</p>
+                    <p class="text-sm text-gray-600">Available Seats: ${cls.capacity - cls.enrolled}</p>
+                </div>
+            `).join('');
+        }
+
+        async function showClassDetails(classId, isEnrolled) {
+            currentClassId = classId;
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/classes/${classId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load class details');
+                }
+
+                const classData = await response.json();
+                displayClassDetails(classData, isEnrolled);
+                showModal();
+            } catch (error) {
+                alert('Error loading class details: ' + error.message);
+            }
+        }
+
+        function displayClassDetails(classData, isEnrolled) {
+            const container = document.getElementById('modalContent');
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Class Name</label>
+                        <p class="mt-1 text-gray-900">${classData.name}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Faculty</label>
+                        <p class="mt-1 text-gray-900">${classData.faculty.username}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Schedule</label>
+                        <p class="mt-1 text-gray-900">${classData.schedule}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Availability</label>
+                        <p class="mt-1 text-gray-900">${classData.capacity - classData.enrolled} seats available</p>
+                    </div>
+                </div>
+            `;
+
+            // Show/hide appropriate action button
+            document.getElementById('enrollButton').classList.toggle('hidden', isEnrolled);
+            document.getElementById('dropButton').classList.toggle('hidden', !isEnrolled);
+
+            // Update button click handlers
+            document.getElementById('enrollButton').onclick = () => enrollInClass(currentClassId);
+            document.getElementById('dropButton').onclick = () => dropClass(currentClassId);
+        }
+
+        function showModal() {
+            document.getElementById('classModal').classList.remove('hidden');
+        }
+
+        function hideModal() {
+            document.getElementById('classModal').classList.add('hidden');
+            currentClassId = null;
+        }
+    </script>
+</body>
+</html>

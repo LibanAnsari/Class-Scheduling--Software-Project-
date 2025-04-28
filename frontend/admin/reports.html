@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen p-6">
+        <nav class="bg-white shadow-md p-4 mb-6 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="../admin-dashboard.html" class="text-blue-500 hover:text-blue-700">← Back to Dashboard</a>
+                <h1 class="text-xl font-bold">System Reports</h1>
+            </div>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+        </nav>
+
+        <!-- Error/Success Alerts -->
+        <div id="errorAlert" class="hidden fixed top-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4"></div>
+        <div id="successAlert" class="hidden fixed top-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4"></div>
+
+        <!-- Date Range Filter -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex items-center gap-4">
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-gray-700">Start Date</label>
+                    <input type="date" id="startDate" class="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-gray-700">End Date</label>
+                    <input type="date" id="endDate" class="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="applyDateFilter()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Apply Filter
+                    </button>
+                </div>
+                <div class="flex items-end ml-auto">
+                    <button onclick="exportReport()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">User Statistics</h2>
+                <canvas id="userTypeChart"></canvas>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Class Enrollment</h2>
+                <canvas id="classEnrollmentChart"></canvas>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">System Activity</h2>
+                <div class="space-y-4">
+                    <div class="p-4 bg-gray-50 rounded">
+                        <p class="font-medium">Active Users Today: <span id="activeUsers" class="text-blue-600">0</span></p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded">
+                        <p class="font-medium">Total Classes: <span id="totalClasses" class="text-green-600">0</span></p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded">
+                        <p class="font-medium">Average Class Size: <span id="avgClassSize" class="text-purple-600">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Recent Activity</h2>
+                <div id="recentActivity" class="space-y-2">
+                    <!-- Activity logs will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/auth.js"></script>
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let currentStats = null;
+        let currentActivities = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUser = checkAuth();
+            if (!currentUser || currentUser.userType !== 'admin') {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            // Set default date range to last 30 days
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+            
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+            
+            loadStatistics();
+            loadRecentActivity();
+        });
+
+        async function loadStatistics() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                
+                const response = await fetch(`${API_URL}/admin/statistics?startDate=${startDate}&endDate=${endDate}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load statistics');
+                }
+
+                const stats = await response.json();
+                currentStats = stats;
+                updateStatistics(stats);
+                updateCharts(stats);
+            } catch (error) {
+                showError('Error loading statistics: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = '../index.html';
+                }
+            }
+        }
+
+        function updateStatistics(stats) {
+            document.getElementById('activeUsers').textContent = stats.activeUsers || 0;
+            document.getElementById('totalClasses').textContent = stats.totalClasses || 0;
+            document.getElementById('avgClassSize').textContent = stats.averageClassSize?.toFixed(1) || 0;
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                const response = await fetch(`${API_URL}/admin/activity?startDate=${startDate}&endDate=${endDate}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Not authenticated');
+                    }
+                    throw new Error('Failed to load activity');
+                }
+
+                const activities = await response.json();
+                currentActivities = activities;
+                displayRecentActivity(activities);
+            } catch (error) {
+                showError('Error loading activity: ' + error.message);
+                if (error.message === 'Not authenticated') {
+                    window.location.href = '../index.html';
+                }
+            }
+        }
+
+        function displayRecentActivity(activities) {
+            const container = document.getElementById('recentActivity');
+            if (!activities.length) {
+                container.innerHTML = '<p class="text-gray-500">No recent activity</p>';
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => `
+                <div class="p-3 bg-gray-50 rounded">
+                    <p class="text-sm">
+                        <span class="font-medium">${activity.type}</span>
+                        <span class="text-gray-600"> - ${activity.description}</span>
+                        <span class="text-gray-400 text-xs float-right">${formatDate(activity.timestamp)}</span>
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        function formatDate(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+
+        function updateCharts(stats) {
+            // User Type Distribution Chart
+            new Chart(document.getElementById('userTypeChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Students', 'Faculty', 'Admins'],
+                    datasets: [{
+                        data: [
+                            stats.userCounts?.student || 0,
+                            stats.userCounts?.faculty || 0,
+                            stats.userCounts?.admin || 0
+                        ],
+                        backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'User Distribution by Type'
+                        }
+                    }
+                }
+            });
+
+            // Class Enrollment Chart with Capacity
+            new Chart(document.getElementById('classEnrollmentChart'), {
+                type: 'bar',
+                data: {
+                    labels: stats.classEnrollment?.map(c => c.name) || [],
+                    datasets: [
+                        {
+                            label: 'Current Enrollment',
+                            data: stats.classEnrollment?.map(c => c.enrolled) || [],
+                            backgroundColor: '#3B82F6'
+                        },
+                        {
+                            label: 'Capacity',
+                            data: stats.classEnrollment?.map(c => c.capacity) || [],
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            type: 'line'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Class Enrollment vs Capacity'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function applyDateFilter() {
+            loadStatistics();
+            loadRecentActivity();
+        }
+
+        async function exportReport() {
+            if (!currentStats || !currentActivities) {
+                showError('No data to export');
+                return;
+            }
+
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            const report = {
+                generatedAt: new Date().toISOString(),
+                dateRange: { startDate, endDate },
+                statistics: currentStats,
+                activities: currentActivities
+            };
+
+            // Create and download the report file
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin-report-${startDate}-to-${endDate}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showSuccess('Report exported successfully');
+        }
+
+        function showError(message) {
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            setTimeout(() => alert.classList.add('hidden'), 5000);
+        }
+
+        function showSuccess(message) {
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+            setTimeout(() => alert.classList.add('hidden'), 5000);
+        }
+    </script>
+</body>
+</html>

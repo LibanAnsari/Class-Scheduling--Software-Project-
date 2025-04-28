@@ -1,0 +1,1 @@
+$headers = @{ "Content-Type" = "application/json" }; $body = '{"username":"admin","email":"admin@example.com","password":"Admin123!","userType":"admin"}'; Invoke-WebRequest -Uri "http://localhost:3000/api/signup" -Method Post -Headers $headers -Body $body

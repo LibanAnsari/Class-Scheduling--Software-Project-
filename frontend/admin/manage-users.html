@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen p-6">
+        <nav class="bg-white shadow-md p-4 mb-6 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="../admin-dashboard.html" class="text-blue-500 hover:text-blue-700">← Back to Dashboard</a>
+                <h1 class="text-xl font-bold">Manage Users</h1>
+            </div>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+        </nav>
+
+        <div class="grid grid-cols-1 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">User Management</h2>
+                
+                <div class="mb-6 flex gap-4">
+                    <select id="userTypeFilter" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">All Users</option>
+                        <option value="student">Students</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="admin">Admins</option>
+                    </select>
+                    <button onclick="loadUsers()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Filter</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-lg p-8 w-full max-w-md">
+                <h3 class="text-lg font-semibold mb-4">Edit User</h3>
+                <form id="editUserForm" class="space-y-4">
+                    <div>
+                        <label for="editUsername" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="editUsername" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" readonly>
+                    </div>
+
+                    <div>
+                        <label for="editEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="editEmail" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label for="editUserType" class="block text-sm font-medium text-gray-700">User Type</label>
+                        <select id="editUserType" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="student">Student</option>
+                            <option value="faculty">Faculty</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" onclick="hideEditModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/auth.js"></script>
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let currentUsername = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUser = checkAuth();
+            if (!currentUser || currentUser.userType !== 'admin') {
+                window.location.href = '../index.html';
+                return;
+            }
+            loadUsers();
+
+            // Setup edit form submission
+            document.getElementById('editUserForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const userData = {
+                    email: document.getElementById('editEmail').value,
+                    userType: document.getElementById('editUserType').value
+                };
+
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`${API_URL}/users/${currentUsername}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(userData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to update user');
+                    }
+
+                    hideEditModal();
+                    loadUsers();
+                } catch (error) {
+                    alert('Error updating user: ' + error.message);
+                }
+            });
+        });
+
+        async function loadUsers() {
+            const userType = document.getElementById('userTypeFilter').value;
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/users${userType ? `?type=${userType}` : ''}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load users');
+                }
+
+                const users = await response.json();
+                displayUsers(users);
+            } catch (error) {
+                alert('Error loading users: ' + error.message);
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap capitalize">${user.userType}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button onclick="editUser('${user.username}')" class="text-blue-600 hover:text-blue-900 mr-2">Edit</button>
+                        <button onclick="deleteUser('${user.username}')" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteUser(username) {
+            if (!confirm(`Are you sure you want to delete user ${username}?`)) {
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/users/${username}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete user');
+                }
+
+                loadUsers();
+            } catch (error) {
+                alert('Error deleting user: ' + error.message);
+            }
+        }
+
+        async function editUser(username) {
+            currentUsername = username;
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/users/${username}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load user details');
+                }
+
+                const user = await response.json();
+                document.getElementById('editUsername').value = user.username;
+                document.getElementById('editEmail').value = user.email;
+                document.getElementById('editUserType').value = user.userType;
+                
+                document.getElementById('editUserModal').classList.remove('hidden');
+            } catch (error) {
+                alert('Error loading user details: ' + error.message);
+            }
+        }
+
+        function hideEditModal() {
+            document.getElementById('editUserModal').classList.add('hidden');
+            document.getElementById('editUserForm').reset();
+            currentUsername = null;
+        }
+    </script>
+</body>
+</html>
